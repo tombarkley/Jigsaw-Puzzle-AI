@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait
 """# Image processing"""
 
 
-abs_start_time = time.time()
+# abs_start_time = time.time()
 # @title Functions
 
 def showpic(image, width=10):
@@ -108,7 +108,7 @@ def load_raw_file(raw_filename, output_prefix, tile_count):
   
 
 def load_from_processed():
-  tiles, canvas_tiles = [], []
+  tiles, tile_centers, canvas_tiles = [], [], []
   # Load scanned tiles
 
   for filename in os.listdir('output/canvas-tiles'):
@@ -117,8 +117,11 @@ def load_from_processed():
   for filename in os.listdir('output/tiles'):
     if filename.endswith('.png'):
       tiles.append(np.array(Image.open('output/tiles/' + filename).convert('RGBA')))
+  for filename in os.listdir('output/tile-centers'):
+    if filename.endswith('.npy'):
+      tile_centers.append(np.load('output/tile-centers/' + filename))
   
-  return tiles, canvas_tiles
+  return tiles, tile_centers, canvas_tiles
 
 # tiles, canvas_tiles = load_from_raw()
 # tiles, canvas_tiles = load_from_processed()
@@ -322,10 +325,10 @@ def new_matcher(match_pair, tiles, canvas_tiles):
   ttl_comp -= 1
   print('match ' + str(a) + ' and ' + str(b) + ' in ' + str(round(time.time()-start_time,2)) + ' seconds remaining: ' + str(ttl_comp))
 
-def main():
-  global ttl_comp
-  global matches
-  
+def thread_match(ttl_comp, match_list, tiles, canvas_tiles):
+  # global ttl_comp
+  # global matches
+  matches = []
 
   ttl_comp = exp_comp * 1
   
@@ -335,6 +338,7 @@ def main():
     wait(future,None,"ALL_COMPLETED")
     for f in future:
       matches.extend(f.result())
+    return matches
     # for f in future:
     #   matches.extend(f.result())
     # for matched_tile in executor.map(new_matcher, match_list[:15]):
