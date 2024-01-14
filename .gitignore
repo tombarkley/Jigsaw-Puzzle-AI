@@ -1,2 +1,5 @@
-ouput-pics
-input-pics
+ouput
+input_pics
+# /*
+*.png
+*.npy

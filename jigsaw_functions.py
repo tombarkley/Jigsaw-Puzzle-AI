@@ -45,10 +45,13 @@ def load_raw_file(raw_filename, output_prefix, tile_count):
   tiles, tile_centers, canvas_tiles = [], [], []
   # if file is .heic, convert it to .png
   if raw_filename.endswith('.heic'):
-    if not os.path.exists('input-pics/' + raw_filename[:-5] + '.png'):
-      new_img = HEIC2PNG('input-pics/' + raw_filename)
-      new_img.save('input-pics/' + raw_filename[:-5] + '.png')
-  puzzle = np.array(Image.open('input-pics/' + raw_filename[:-5] + '.png').convert('RGBA'))
+    if not os.path.exists('input_pics/' + raw_filename[:-5] + '.png'):
+      new_img = HEIC2PNG('input_pics/' + raw_filename)
+      new_img.save('input_pics/' + raw_filename[:-5] + '.png')
+      puzzle = np.array(Image.open('input_pics/' + raw_filename[:-5] + '.png').convert('RGBA'))
+  else:
+    puzzle = np.array(Image.open('input_pics/' + raw_filename).convert('RGBA'))
+
   print(puzzle.shape)
 
   thresh = cv2.cvtColor(puzzle, cv2.COLOR_RGBA2GRAY)
@@ -91,96 +94,29 @@ def load_raw_file(raw_filename, output_prefix, tile_count):
     canvas_tiles.append(canvas_tile)
 
   showlist(canvas_tiles)
-  # save canvas_tiles and tiles to output-pics folder
+  # save canvas_tiles and tiles to output folder
+  # save tile_centers to output folder as json
   for i in range(len(tiles)):
-    Image.fromarray(tiles[i]).save('output-pics/tiles/' + str(i) + '.png')
-    Image.fromarray(canvas_tiles[i]).save('output-pics/canvas-tiles/' + str(i) + '.png')
+    Image.fromarray(tiles[i]).save('output/tiles/' + output_prefix + str(i) + '.png')
+    Image.fromarray(canvas_tiles[i]).save('output/canvas-tiles/' + output_prefix + str(i) + '.png')
+    np.save('output/tile-centers/' + output_prefix + str(i) + '.npy', tile_centers[i])
+
 
   # return tiles, canvas_tiles
-  return tiles, canvas_tiles
+  return tiles, tile_centers, canvas_tiles
 
-  # # for each image in input-pics folder
-  # # if there is a .heic file, convert it to .png unless there is already a .png file with that name
-  # # if there is a .png file, do nothing
-  # for filename in os.listdir('input-pics'):
-  #   if filename.endswith('.heic'):
-  #     if not os.path.exists('input-pics/' + filename[:-5] + '.png'):
-  #       new_img = HEIC2PNG('input-pics/' + filename)
-  #       new_img.save('input-pics/' + filename[:-5] + '.png')
-  #   elif filename.endswith('.png'):
-  #     continue
-  #   else:
-  #     continue
-
-  # tiles, tile_centers = [], []
-  # Load scanned tiles
-  # puzzles = []
-  # for filename in os.listdir('input-pics'):
-  #   if filename.endswith('.png'):
-  #     puzzles.append(np.array(Image.open('input-pics/' + filename).convert('RGBA')))
-
-
-  # for puzzle in puzzles:
-  #   print(puzzle.shape)
-
-  #   thresh = cv2.cvtColor(puzzle, cv2.COLOR_RGBA2GRAY)
-
-  #   thresh = cv2.adaptiveThreshold(thresh, 255, 0, 1, 3, 3)
-  #   thresh = cv2.GaussianBlur(thresh, (3,1), 1) 
-  #   showpic(thresh)
-
-  #   contours, _ = cv2.findContours(thresh, 0, 1) 
-  #   # contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, 1)
-  #   sorting = sorted([[cnt.shape[0], i] for i, cnt in enumerate(contours)], reverse=True)[:36]
-  #   biggest = [contours[s[1]] for s in sorting] 
-  #   fill = cv2.drawContours(np.zeros(puzzle.shape[:2]), biggest, -1, 255, thickness=cv2.FILLED)
-  #   showpic(fill)
-  #   smooth = median_filter(fill.astype('uint8'), size=10)
-  #   trim_contours, _ = cv2.findContours(smooth, 0, 1)
-  #   cv2.drawContours(smooth, trim_contours, -1, color=0, thickness=1)
-  #   showpic(smooth)
-  #   contours, _ = cv2.findContours(smooth, 0, 1)
-    
-  #   pic_height, pic_width = puzzle.shape[:2]
-  #   print(pic_height, pic_width)
-  #   for i in range(len(contours)):
-  #     x, y, w, h = cv2.boundingRect(contours[i])
-  #     shape, tile = np.zeros(puzzle.shape[:2]), np.zeros((600,600,4), 'uint8')
-  #     cv2.drawContours(shape, [contours[i]], -1, color=1, thickness=-1)
-  #     shape = (puzzle * shape[:,:,None])[y:y+h,x:x+w,:]
-  #     tile[(600-h)//2:(600-h)//2+h,(600-w)//2:(600-w)//2+w] = shape   
-  #     # tile[h:h, w:w] = shape
-  #     # tile[(pic_height-h)//2:(pic_height-h)//2+h,(pic_width-w)//2:(pic_width-w)//2+w] = shape
-  #     tiles.append(tile)
-  #     tile_centers.append((h//2+y, w//2+x))
-
-  # showlist(tiles)
-
-  # canvas_tiles = []
-  # for i in range(len(tiles)):
-  #   canvas_tile = np.zeros((1400,1400,4), 'uint8')
-  #   canvas_tile[250:850, 250:850] = tiles[i].copy()
-  #   canvas_tiles.append(canvas_tile)
-
-  # showlist(canvas_tiles)
-  # # save canvas_tiles and tiles to output-pics folder
-  # for i in range(len(tiles)):
-  #   Image.fromarray(tiles[i]).save('output-pics/tiles/' + str(i) + '.png')
-  #   Image.fromarray(canvas_tiles[i]).save('output-pics/canvas-tiles/' + str(i) + '.png')
-
-  # # return tiles, canvas_tiles
-  # return tiles, canvas_tiles
+  
 
 def load_from_processed():
   tiles, canvas_tiles = [], []
   # Load scanned tiles
 
-  for filename in os.listdir('output-pics/canvas-tiles'):
+  for filename in os.listdir('output/canvas-tiles'):
     if filename.endswith('.png'):
-      canvas_tiles.append(np.array(Image.open('output-pics/canvas-tiles/' + filename).convert('RGBA')))
-  for filename in os.listdir('output-pics/tiles'):
+      canvas_tiles.append(np.array(Image.open('output/canvas-tiles/' + filename).convert('RGBA')))
+  for filename in os.listdir('output/tiles'):
     if filename.endswith('.png'):
-      tiles.append(np.array(Image.open('output-pics/tiles/' + filename).convert('RGBA')))
+      tiles.append(np.array(Image.open('output/tiles/' + filename).convert('RGBA')))
   
   return tiles, canvas_tiles
 
@@ -190,7 +126,7 @@ def load_from_processed():
 # showlist(canvas_tiles)
 
 
-# puzzle = np.array(Image.open('input-pics/j1.heic').convert('RGBA'))
+# puzzle = np.array(Image.open('input_pics/j1.heic').convert('RGBA'))
 # print(puzzle.shape)
 # showpic(puzzle)
 
