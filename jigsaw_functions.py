@@ -41,20 +41,31 @@ def showlist(tiles, width=10):
     plt.imshow(tiles[i])
   plt.show()
 
-def load_raw_file(raw_filename, output_prefix, tile_count):
+def load_raw_file(raw_filename, output_prefix, tile_count, orientation):
+  if orientation == 'landscape':
+    width, height = 1000, 727
+  elif orientation == 'portrait':
+    width, height = 727, 1000
   tiles, tile_centers, canvas_tiles = [], [], []
   # if file is .heic, convert it to .png
   if raw_filename.endswith('.heic'):
     if not os.path.exists('input_pics/' + raw_filename[:-5] + '.png'):
       new_img = HEIC2PNG('input_pics/' + raw_filename)
       new_img.save('input_pics/' + raw_filename[:-5] + '.png')
-      puzzle = np.array(Image.open('input_pics/' + raw_filename[:-5] + '.png').convert('RGBA'))
+      new_puzzle = np.array(Image.open('input_pics/' + raw_filename[:-5] + '.png').convert('RGBA'))
+      puzzle = cv2.resize(new_puzzle, (width,height), interpolation=cv2.INTER_AREA)
+      # puzzle = np.array(Image.open('input_pics/' + raw_filename[:-5] + '.png').convert('RGBA'))
   else:
-    puzzle = np.array(Image.open('input_pics/' + raw_filename).convert('RGBA'))
+    new_puzzle = np.array(Image.open('input_pics/' + raw_filename).convert('RGBA'))
+    puzzle = cv2.resize(new_puzzle, (width,height), interpolation=cv2.INTER_AREA)
 
   print(puzzle.shape)
+  # create scaled version of puzzle that is 727x1000
+  # puzzle = cv2.resize(puzzle, (1000,727), interpolation=cv2.INTER_AREA)
+  # print(puzzle.shape)
 
   thresh = cv2.cvtColor(puzzle, cv2.COLOR_RGBA2GRAY)
+  
 
   thresh = cv2.adaptiveThreshold(thresh, 255, 0, 1, 3, 3)
   thresh = cv2.GaussianBlur(thresh, (3,1), 1) 
@@ -62,7 +73,7 @@ def load_raw_file(raw_filename, output_prefix, tile_count):
 
   contours, _ = cv2.findContours(thresh, 0, 1) 
   # contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, 1)
-  sorting = sorted([[cnt.shape[0], i] for i, cnt in enumerate(contours)], reverse=True)[:36]
+  sorting = sorted([[cnt.shape[0], i] for i, cnt in enumerate(contours)], reverse=True)[:tile_count]
   biggest = [contours[s[1]] for s in sorting] 
   fill = cv2.drawContours(np.zeros(puzzle.shape[:2]), biggest, -1, 255, thickness=cv2.FILLED)
   showpic(fill)
@@ -71,27 +82,47 @@ def load_raw_file(raw_filename, output_prefix, tile_count):
   cv2.drawContours(smooth, trim_contours, -1, color=0, thickness=1)
   showpic(smooth)
   contours, _ = cv2.findContours(smooth, 0, 1)
-  
+
+
+  canvas_tiles = []
   pic_height, pic_width = puzzle.shape[:2]
   print(pic_height, pic_width)
   for i in range(len(contours)):
-    x, y, w, h = cv2.boundingRect(contours[i])
-    shape, tile = np.zeros(puzzle.shape[:2]), np.zeros((600,600,4), 'uint8')
-    cv2.drawContours(shape, [contours[i]], -1, color=1, thickness=-1)
-    shape = (puzzle * shape[:,:,None])[y:y+h,x:x+w,:]
-    tile[(600-h)//2:(600-h)//2+h,(600-w)//2:(600-w)//2+w] = shape   
-    # tile[h:h, w:w] = shape
-    # tile[(pic_height-h)//2:(pic_height-h)//2+h,(pic_width-w)//2:(pic_width-w)//2+w] = shape
-    tiles.append(tile)
-    tile_centers.append((h//2+y, w//2+x))
+    x, y, w, h = cv2.boundingRect(contours[i]) 
+    shape, tile = np.zeros(puzzle.shape[:2]), np.zeros((300,300,4), 'uint8') 
+    cv2.drawContours(shape, [contours[i]], -1, color=1, thickness=-1)   
+    shape = (puzzle * shape[:,:,None])[y:y+h, x:x+w, :] 
+    tile[(300-h)//2:(300-h)//2+h,(300-w)//2:(300-w)//2+w] = shape   
+    tiles.append(tile) 
+    tile_centers.append((h//2+y, w//2+x))  
+
+    # x, y, w, h = cv2.boundingRect(contours[i])
+    # # shape, tile = np.zeros(puzzle.shape[:2]), np.zeros((h,w,4), 'uint8')
+    # shape, tile = np.zeros(puzzle.shape[:2]), np.zeros((300,300,4), 'uint8')
+    # cv2.drawContours(shape, [contours[i]], -1, color=1, thickness=-1)
+    # shape = (puzzle * shape[:,:,None])[y:y+h,x:x+w,:]
+    # # tile[0:h, 0:w] = shape
+    # tile[(300-h)//2:(300-h)//2+h,(300-w)//2:(300-w)//2+w] = shape 
+    # # tile[(300-h)//2:(300-h)//2+h,(300-w)//2:(300-w)//2+w] = shape  
+    # # tile[(600-h)//2:(600-h)//2+h,(600-w)//2:(600-w)//2+w] = shape   
+    # # tile[h:h, w:w] = shape
+    # # tile[(pic_height-h)//2:(pic_height-h)//2+h,(pic_width-w)//2:(pic_width-w)//2+w] = shape
+    # tiles.append(tile)
+    # tile_centers.append((h//2+y, w//2+x))
+    canvas_tile = np.zeros((1400,1400,4), 'uint8')   
+    canvas_tile[550:850, 550:850] = tile  
+    canvas_tiles.append(canvas_tile)
+    # canvas_tile = np.zeros((h,w,4), 'uint8')
+    # canvas_tile[0:h, 0:w] = tile
+    # canvas_tiles.append(canvas_tile)
 
   showlist(tiles)
 
-  canvas_tiles = []
-  for i in range(len(tiles)):
-    canvas_tile = np.zeros((1400,1400,4), 'uint8')
-    canvas_tile[250:850, 250:850] = tiles[i].copy()
-    canvas_tiles.append(canvas_tile)
+  # canvas_tiles = []
+  # for i in range(len(tiles)):
+  #   canvas_tile = np.zeros((h,w,4), 'uint8')
+  #   canvas_tile[250:850, 250:850] = tiles[i].copy()
+  #   canvas_tiles.append(canvas_tile)
 
   showlist(canvas_tiles)
   # save canvas_tiles and tiles to output folder
@@ -108,20 +139,43 @@ def load_raw_file(raw_filename, output_prefix, tile_count):
   
 
 def load_from_processed():
-  tiles, tile_centers, canvas_tiles = [], [], []
+  tiles, tile_centers, canvas_tiles, comp_results = [], [], [], []
   # Load scanned tiles
-
-  for filename in os.listdir('output/canvas-tiles'):
-    if filename.endswith('.png'):
-      canvas_tiles.append(np.array(Image.open('output/canvas-tiles/' + filename).convert('RGBA')))
-  for filename in os.listdir('output/tiles'):
-    if filename.endswith('.png'):
-      tiles.append(np.array(Image.open('output/tiles/' + filename).convert('RGBA')))
-  for filename in os.listdir('output/tile-centers'):
+  if os.path.exists('output/tile_map.npy'):
+    tile_map = np.load('output/tile_map.npy')
+    for tile_name in tile_map:
+      tiles.append(np.array(Image.open('output/tiles/' + tile_name + '.png').convert('RGBA')))
+      canvas_tiles.append(np.array(Image.open('output/canvas-tiles/' + tile_name + '.png').convert('RGBA')))
+      tile_centers.append(np.load('output/tile-centers/' + tile_name + '.npy'))
+  else:
+    tile_map = []
+    for filename in os.listdir('output/tiles'):
+      if filename.endswith('.png'):
+        tile_map.append(filename[:-4])
+        tiles.append(np.array(Image.open('output/tiles/' + filename).convert('RGBA')))
+        canvas_tiles.append(np.array(Image.open('output/canvas-tiles/' + filename).convert('RGBA')))
+        tile_centers.append(np.load('output/tile-centers/' + filename[:-4] + '.npy'))
+    np.save('output/tile_map.npy', tile_map)
+  for filename in os.listdir('output/results'):
     if filename.endswith('.npy'):
-      tile_centers.append(np.load('output/tile-centers/' + filename))
+      # add filename to comp_results with npy extension removed
+      comp_results.append(filename[:-4])
+    
+  # for filename in os.listdir('output/canvas-tiles'):
+  #   if filename.endswith('.png'):
+  #     canvas_tiles.append(np.array(Image.open('output/canvas-tiles/' + filename).convert('RGBA')))
+  # for filename in os.listdir('output/tiles'):
+  #   if filename.endswith('.png'):
+  #     tiles.append(np.array(Image.open('output/tiles/' + filename).convert('RGBA')))
+  # for filename in os.listdir('output/tile-centers'):
+  #   if filename.endswith('.npy'):
+  #     tile_centers.append(np.load('output/tile-centers/' + filename))
+  # for filename in os.listdir('output/results'):
+  #   if filename.endswith('.npy'):
+  #     # add filename to comp_results with npy extension removed
+  #     comp_results.append(filename[:-4])
   
-  return tiles, tile_centers, canvas_tiles
+  return tiles, tile_centers, canvas_tiles, comp_results
 
 # tiles, canvas_tiles = load_from_raw()
 # tiles, canvas_tiles = load_from_processed()
@@ -145,21 +199,20 @@ if __name__ == '__main__':
 
 
 # @title Functions
-
 def getColors(image, subcontour):
   subcontour = np.flip(subcontour)
-
+  
   colors = []
   for n in range(len(subcontour)-3):
     (y,x) = subcontour[n]
     (y1,x1) = subcontour[n+3]
     h, w = y1 - y, x1 - x
     colors.append(image[y-w, x+h, :3] + image[y+w, x-h, :3])
-
   colors = np.array(colors, 'uint8').reshape(-1,1,3)
   colors = cv2.cvtColor(colors, cv2.COLOR_RGB2HSV)
   
   return colors.reshape(-1,3)
+
 
 def putOnAnvil(arr_img, point, angle, center=(700,700)):
   img = Image.fromarray(arr_img)
@@ -312,32 +365,42 @@ def matcher(match_pair):
   #   print('match ' + str(a) + ' and ' + str(b) + ' in ' + str(round(time.time()-start_time,2)) + ' seconds remaing: ' + str(ttl_comp))
 
 
-def new_matcher(match_pair, tiles, canvas_tiles):
+def new_matcher(match_pair, tiles, canvas_tiles, comp_results):
   # set ttl_comp to global
   a, b = match_pair
   start_time = time.time()
+  was_run = False
   # print start time
   # print('match ' + str(a) + ' and ' + str(b) + ' started at ' + str(round(start_time,2)))
-  matched_pair = matchTiles((a,b), tiles, canvas_tiles)
+  if str(a) + '-' + str(b) not in comp_results:
+    matched_pair = matchTiles((a,b), tiles, canvas_tiles)
+    was_run = True
+  else:
+    matched_pair = []
+    print('matched completion found in comp_results')
   # print('match ' + str(a) + ' and ' + str(b) + ' in ' + str(round(time.time()-start_time,2)) )
-  return matched_pair
+  # save matched pair to npy file in output/results
+  # np.save('output/results/' + str(a) + '-' + str(b) + '.npy', matched_pair)
+  return matched_pair, a, b, was_run
   matches.extend(matchTiles(a,b))
   ttl_comp -= 1
   print('match ' + str(a) + ' and ' + str(b) + ' in ' + str(round(time.time()-start_time,2)) + ' seconds remaining: ' + str(ttl_comp))
 
-def thread_match(ttl_comp, match_list, tiles, canvas_tiles):
+def thread_match(match_list, tiles, canvas_tiles, comp_results):
   # global ttl_comp
   # global matches
-  matches = []
-
-  ttl_comp = exp_comp * 1
-  
+  matches = [] 
   num_threads = os.cpu_count()
   with ProcessPoolExecutor(max_workers=num_threads-2) as executor:
-    future = [executor.submit(new_matcher, match_pair, tiles, canvas_tiles) for match_pair in match_list]
+    future = [executor.submit(new_matcher, match_pair, tiles, canvas_tiles, comp_results) for match_pair in match_list]
     wait(future,None,"ALL_COMPLETED")
+    print('all matches completed')
     for f in future:
-      matches.extend(f.result())
+      matched_pair, a, b, was_run = f.result()
+      if was_run:
+        np.save('output/results/' + str(a) + '-' + str(b) + '.npy', matched_pair)
+    # for f in future:
+    #   matches.extend(f.result())
     return matches
     # for f in future:
     #   matches.extend(f.result())
@@ -346,26 +409,26 @@ def thread_match(ttl_comp, match_list, tiles, canvas_tiles):
     #   # print('match in ' + str(round(time.time()-start_time,2)) + ' seconds remaining: ' + str(ttl_comp))
     #   matches.extend(matched_tile)
 
-if __name__ == '__main__':
-  print('calculate all possible matches')
-  # matches = []
-  # # calculate number of expected comparisons
-  # exp_comp = 0
-  # match_list = []
-  for a in range(len(tiles)-1):
-    for b in range(a+1,len(tiles)):
-      exp_comp += 1
-      match_list.append((a,b))
-  print('expected comparisons: ' + str(exp_comp))
-  main()
-  print('flip and sort')
-  for n in range(len(matches)):
-    pair, ij, pointa, pointb, angle, fmatch, cmatch, fit, lock = matches[n]
-    matches.extend([[(pair[1],pair[0]), ij, pointb, pointa, -angle, fmatch, cmatch, fit, lock]])
-  matches.sort(key=lambda m: (m[0], m[-2]))
+# if __name__ == '__main__':
+#   print('calculate all possible matches')
+#   # matches = []
+#   # # calculate number of expected comparisons
+#   # exp_comp = 0
+#   # match_list = []
+#   for a in range(len(tiles)-1):
+#     for b in range(a+1,len(tiles)):
+#       exp_comp += 1
+#       match_list.append((a,b))
+#   print('expected comparisons: ' + str(exp_comp))
 
-  print(len(matches))
-  print('total time: ' + str(round(time.time()-abs_start_time,2)) + ' seconds')
+#   print('flip and sort')
+#   for n in range(len(matches)):
+#     pair, ij, pointa, pointb, angle, fmatch, cmatch, fit, lock = matches[n]
+#     matches.extend([[(pair[1],pair[0]), ij, pointb, pointa, -angle, fmatch, cmatch, fit, lock]])
+#   matches.sort(key=lambda m: (m[0], m[-2]))
+
+#   print(len(matches))
+#   print('total time: ' + str(round(time.time()-abs_start_time,2)) + ' seconds')
   # print(matches)
 
 
